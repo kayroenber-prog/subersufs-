@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Runner Hacker 3D</title>
+<style>
+body { margin:0; overflow:hidden; background:#87ceeb; font-family: Arial, sans-serif; }
+#scoreboard { position:absolute; top:10px; left:10px; font-size:20px; color:#000; }
+#controls{ position:fixed; bottom:10px; left:0; width:100%; display:flex; justify-content:center; gap:20px; z-index:999; }
+.btn{ width:80px; height:80px; background:rgba(255,255,255,0.5); display:flex; align-items:center; justify-content:center; font-size:36px; border-radius:18px; user-select:none; touch-action:manipulation; }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="scoreboard">
+🏆 Pontos: <span id="score">0</span> | 
+Recorde: <span id="record">0</span> | 
+❤️ Vida: <span id="vida">3</span> | 
+💰 Moedas: <span id="coins">0</span>
+</div>
+
+<div id="controls">
+    <div class="btn" id="left">←</div>
+    <div class="btn" id="jump">↑</div>
+    <div class="btn" id="right">→</div>
+</div>
+
+<script>
+// Canvas
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// Player
+const player = {
+    x:100,
+    y:canvas.height-150,
+    w:50,
+    h:50,
+    dy:0,
+    jumpForce:15,
+    grounded:true,
+    color:"purple", // player colorido
+    img:null // se quiser colocar imagem real, coloque aqui
+};
+
+// Controles
+const keys = { left:false, right:false, jump:false };
+document.getElementById("left").addEventListener("touchstart",()=>keys.left=true);
+document.getElementById("left").addEventListener("touchend",()=>keys.left=false);
+document.getElementById("right").addEventListener("touchstart",()=>keys.right=true);
+document.getElementById("right").addEventListener("touchend",()=>keys.right=false);
+document.getElementById("jump").addEventListener("touchstart",()=>keys.jump=true);
+document.getElementById("jump").addEventListener("touchend",()=>keys.jump=false);
+
+// Placar
+let score = 0;
+let record = localStorage.getItem("record") ? parseInt(localStorage.getItem("record")) : 0;
+let coins = 0;
+let vida = 3;
+
+// Plataformas
+const platforms = [
+    {x:0, y:canvas.height-50, w:canvas.width, h:50},
+];
+
+// Inimigos
+const enemies = [];
+function spawnEnemy(){
+    let size = 50;
+    enemies.push({
+        x: canvas.width + Math.random()*500,
+        y: canvas.height-100,
+        w: size,
+        h: size,
+        color: "red",
+        speed: 3 + Math.random()*2
+    });
+}
+for(let i=0;i<3;i++) spawnEnemy();
+
+// Loop do jogo
+function loop(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Movimento player
+    if(keys.left) player.x -=5;
+    if(keys.right) player.x +=5;
+    if(keys.jump && player.grounded){ player.dy = -player.jumpForce; player.grounded=false; }
+
+    // Gravidade
+    player.dy +=0.8;
+    player.y += player.dy;
+
+    // Colisão plataformas
+    player.grounded=false;
+    platforms.forEach(p=>{
+        if(player.x < p.x+p.w && player.x+player.w > p.x &&
+           player.y < p.y+p.h && player.y+player.h > p.y){
+            player.y = p.y - player.h;
+            player.dy=0;
+            player.grounded=true;
+        }
+    });
+
+    // Limites invisíveis
+    if(player.x<0) player.x=0;
+    if(player.x+player.w>canvas.width) player.x = canvas.width-player.w;
+    if(player.y+player.h>canvas.height) { player.y = canvas.height-player.h; player.dy=0; }
+
+    // Desenhar player
+    if(player.img){
+        ctx.drawImage(player.img, player.x, player.y, player.w, player.h);
+    } else {
+        ctx.fillStyle = player.color;
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+    }
+
+    // Desenhar plataformas
+    platforms.forEach(p=>{
+        ctx.fillStyle="green";
+        ctx.fillRect(p.x,p.y,p.w,p.h);
+    });
+
+    // Desenhar inimigos e movimento
+    enemies.forEach((e,i)=>{
+        e.x -= e.speed;
+        ctx.fillStyle=e.color;
+        ctx.fillRect(e.x,e.y,e.w,e.h);
+
+        // Colisão inimigo
+        if(player.x < e.x+e.w && player.x+player.w > e.x &&
+           player.y < e.y+e.h && player.y+player.h > e.y){
+            vida--;
+            player.x=100; player.y=canvas.height-150;
+        }
+
+        // Respawn inimigo se sair da tela
+        if(e.x + e.w < 0){
+            enemies.splice(i,1);
+            spawnEnemy();
+        }
+    });
+
+    // Contagem de pontos
+    score++;
+    if(score>record){ record=score; localStorage.setItem("record",record); }
+    document.getElementById("score").textContent = score;
+    document.getElementById("record").textContent = record;
+    document.getElementById("vida").textContent = vida;
+    document.getElementById("coins").textContent = coins;
+
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
