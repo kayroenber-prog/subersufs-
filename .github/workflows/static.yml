@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>SuberSufs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: none;
+    }
+
+    body {
+      background: linear-gradient(#0a0a0a, #1e1e1e);
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+      color: white;
+    }
+
+    #menu, #gameover {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    button {
+      padding: 15px 30px;
+      margin: 10px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      background: #00ffcc;
+      color: #000;
+      font-weight: bold;
+    }
+
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 5;
+      font-size: 16px;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    /* Botões mobile */
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 5;
+    }
+
+    .ctrl {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="menu">
+  <h1>🏃 SuberSufs</h1>
+  <button onclick="startGame()">▶ Começar</button>
+</div>
+
+<div id="gameover" style="display:none">
+  <h1>💀 Game Over</h1>
+  <button onclick="restart()">🔄 Jogar de novo</button>
+</div>
+
+<div id="hud">
+  Pontos: <span id="score">0</span><br>
+  Moedas: <span id="coins">0</span><br>
+  Vida: <span id="hp">3</span>
+</div>
+
+<canvas id="game"></canvas>
+
+<div id="controls">
+  <div class="ctrl" id="left">⬅</div>
+  <div class="ctrl" id="jump">⬆</div>
+  <div class="ctrl" id="right">➡</div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+let playing = false;
+let score = 0;
+let coins = 0;
+let hp = 3;
+let speed = 4;
+
+const player = {
+  x: canvas.width / 2,
+  y: canvas.height - 120,
+  w: 50,
+  h: 70,
+  vy: 0,
+  jump: false
+};
+
+let enemies = [];
+let coinList = [];
+
+function startGame() {
+  document.getElementById("menu").style.display = "none";
+  playing = true;
+  loop();
+}
+
+function restart() {
+  location.reload();
+}
+
+function spawnEnemy() {
+  enemies.push({
+    x: Math.random() * (canvas.width - 40),
+    y: -40,
+    w: 40,
+    h: 40
+  });
+}
+
+function spawnCoin() {
+  coinList.push({
+    x: Math.random() * (canvas.width - 20),
+    y: -20,
+    r: 10
+  });
+}
+
+setInterval(spawnEnemy, 700);
+setInterval(spawnCoin, 1200);
+
+function loop() {
+  if (!playing) return;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // chão
+  ctx.fillStyle = "#333";
+  ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+  // player
+  ctx.fillStyle = "#00ffcc";
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+
+  player.y += player.vy;
+  player.vy += 0.8;
+
+  if (player.y + player.h > canvas.height - 40) {
+    player.y = canvas.height - 40 - player.h;
+    player.vy = 0;
+    player.jump = false;
+  }
+
+  enemies.forEach((e, i) => {
+    e.y += speed;
+    ctx.fillStyle = "red";
+    ctx.fillRect(e.x, e.y, e.w, e.h);
+
+    if (
+      player.x < e.x + e.w &&
+      player.x + player.w > e.x &&
+      player.y < e.y + e.h &&
+      player.y + player.h > e.y
+    ) {
+      enemies.splice(i,1);
+      hp--;
+      document.getElementById("hp").innerText = hp;
+      if (hp <= 0) gameOver();
+    }
+  });
+
+  coinList.forEach((c, i) => {
+    c.y += speed;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+    ctx.fillStyle = "gold";
+    ctx.fill();
+
+    if (
+      player.x < c.x + c.r &&
+      player.x + player.w > c.x - c.r &&
+      player.y < c.y + c.r &&
+      player.y + player.h > c.y - c.r
+    ) {
+      coinList.splice(i,1);
+      coins++;
+      document.getElementById("coins").innerText = coins;
+    }
+  });
+
+  score++;
+  document.getElementById("score").innerText = score;
+
+  // paredes invisíveis
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
+
+  requestAnimationFrame(loop);
+}
+
+function gameOver() {
+  playing = false;
+  document.getElementById("gameover").style.display = "flex";
+}
+
+// CONTROLES
+document.getElementById("left").ontouchstart = () => player.x -= 40;
+document.getElementById("right").ontouchstart = () => player.x += 40;
+document.getElementById("jump").ontouchstart = () => {
+  if (!player.jump) {
+    player.vy = -18;
+    player.jump = true;
+  }
+};
+</script>
+
+</body>
+  </html>
