@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>SuberSufs - Atualizado com Loja</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; }
+  canvas { display: block; margin: 0 auto; background: #000; }
+  .controls { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index:10; }
+  .btn { width: 60px; height: 60px; background: #1e90ff; color: #fff; font-size: 24px; display: flex; justify-content: center; align-items: center; border-radius: 10px; user-select: none; }
+  #shop { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#222; padding:20px; display:none; color:white; border-radius:10px; z-index:20; }
+  #shop button { margin-top:10px; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="controls">
+  <div class="btn" id="left">⬅</div>
+  <div class="btn" id="up">⬆</div>
+  <div class="btn" id="down">⬇</div>
+  <div class="btn" id="right">➡</div>
+  <div class="btn" id="shopBtn">🛒</div>
+</div>
+
+<div id="shop">
+  <h3>Loja de Skins</h3>
+  <p>Moedas: <span id="coins">100</span></p>
+  <div>
+    <button onclick="buySkin('blue',20)">Skin Azul - 20 moedas</button>
+  </div>
+  <div>
+    <button onclick="buySkin('green',50)">Skin Verde - 50 moedas</button>
+  </div>
+  <button onclick="closeShop()">Fechar Loja</button>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let coins = 100;
+
+const player = {
+  x: canvas.width / 2 - 25,
+  y: canvas.height - 100,
+  width: 50,
+  height: 50,
+  speed: 14,
+  color: 'red',
+  bullets: [],
+  lives: 3
+};
+
+const enemies = [];
+let enemySpawnRate = 50;
+let enemySpeed = 4;
+let difficulty = 1;
+let gameOverCount = 0;
+let score = 0;
+
+let keys = {};
+
+// Movimentos player
+document.addEventListener('keydown', (e) => { keys[e.key] = true; });
+document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+// Toques para celular
+['left','right','up','down'].forEach(dir => {
+  const key = dir==='left'?'ArrowLeft':dir==='right'?'ArrowRight':dir==='up'?'ArrowUp':'ArrowDown';
+  document.getElementById(dir).addEventListener('touchstart', () => keys[key]=true);
+  document.getElementById(dir).addEventListener('touchend', () => keys[key]=false);
+});
+
+// Função disparar
+function shoot() {
+  if (player.bullets.length < 3) {
+    player.bullets.push({ x: player.x + player.width/2 -5, y: player.y, width: 10, height: 20, speed: 10 });
+  }
+}
+setInterval(shoot, 400);
+
+// Criar inimigos
+function spawnEnemy() {
+  const x = Math.random() * (canvas.width - 50);
+  enemies.push({ x, y: -50, width: 50, height: 50, speed: enemySpeed });
+}
+
+// Atualizar jogo
+function update() {
+  // Movimentos player
+  if (keys['ArrowLeft']) player.x -= player.speed;
+  if (keys['ArrowRight']) player.x += player.speed;
+  if (keys['ArrowUp']) player.y -= player.speed;
+  if (keys['ArrowDown']) player.y += player.speed;
+
+  // Limites invisíveis
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+  if (player.y < 0) player.y = 0;
+  if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+
+  // Atualiza balas
+  player.bullets.forEach((b, i) => {
+    b.y -= b.speed;
+    if (b.y < 0) player.bullets.splice(i, 1);
+  });
+
+  // Atualiza inimigos
+  enemies.forEach((e, i) => {
+    e.y += e.speed;
+
+    // Colisão com player
+    if (e.x < player.x + player.width && e.x + e.width > player.x &&
+        e.y < player.y + player.height && e.y + e.height > player.y) {
+      player.lives -=1;
+      enemies.splice(i,1);
+      if (player.lives <=0) handleGameOver();
+    }
+
+    if (e.y > canvas.height) enemies.splice(i,1);
+  });
+
+  // Disparo acerta inimigos
+  player.bullets.forEach((b, bi) => {
+    enemies.forEach((e, ei) => {
+      if (b.x < e.x + e.width && b.x + b.width > e.x &&
+          b.y < e.y + e.height && b.y + b.height > e.y) {
+        player.bullets.splice(bi,1);
+        enemies.splice(ei,1);
+        score +=10;
+        coins +=5; // ganha moedas
+      }
+    });
+  });
+}
+
+// Game Over
+function handleGameOver() {
+  gameOverCount++;
+  if (gameOverCount >= 7) {
+    enemySpeed = 12;
+    enemySpawnRate = 90;
+  } else {
+    enemySpeed += 1 + gameOverCount;
+    enemySpawnRate += 5;
+  }
+  player.lives = 3;
+  player.x = canvas.width/2 -25;
+  player.y = canvas.height -100;
+}
+
+// Desenhar
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Player
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+
+  // Balas
+  ctx.fillStyle = 'cyan';
+  player.bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+
+  // Inimigos
+  ctx.fillStyle = 'red';
+  enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
+
+  // Corações
+  for(let i=0;i<player.lives;i++){
+    ctx.fillStyle='pink';
+    ctx.fillRect(10 + i*35, 10, 30,30);
+  }
+
+  // Score
+  ctx.fillStyle='white';
+  ctx.font='24px Arial';
+  ctx.fillText('Score: '+score, canvas.width-150,30);
+
+  // Moedas
+  document.getElementById('coins').innerText = coins;
+}
+
+// Loop principal
+function loop() {
+  if (Math.random() < enemySpawnRate/1000) spawnEnemy();
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// Iniciar jogo
+loop();
+
+// Loja
+const shopDiv = document.getElementById('shop');
+document.getElementById('shopBtn').addEventListener('click', openShop);
+
+function openShop() {
+  shopDiv.style.display='block';
+}
+
+function closeShop() {
+  shopDiv.style.display='none';
+}
+
+function buySkin(color, price) {
+  if(coins >= price){
+    coins -= price;
+    player.color = color;
+    alert('Você comprou a skin!');
+  } else {
+    alert('Moedas insuficientes!');
+  }
+}
+</script>
+</body>
+  </html>
